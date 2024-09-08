@@ -367,3 +367,9 @@ async def Create_Request(body:BorrowRequest):
     getAddedReq["_id"] = str(getAddedReq["_id"])
 
     return getAddedReq
+
+
+
+@app.get("/")
+async def main ():
+    return {"welcome to Ahuekwe Prince Ugochukwu first fastAPI Project"}
