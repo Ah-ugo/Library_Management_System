@@ -1,6 +1,6 @@
 from _datetime import datetime
 import os
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from pydantic import BaseModel, Field
 import motor.motor_asyncio
 from bson import ObjectId
@@ -150,11 +150,12 @@ async def get_Books():
 # Important for future projects that involve uploading images!!!!!!!!!!!
 @app.post("/books", tags=["Books"])
 async def add_Book(
+request: Request,
         title: str = Form(...),
         author: str = Form(...),
         isbn: str = Form(...),
         category: str = Form(...),
-        image: UploadFile = File(None)
+        image: UploadFile = File(None),
 ):
     book = Book(title=title, author=author, isbn=isbn, category=category)
 
@@ -165,7 +166,7 @@ async def add_Book(
             shutil.copyfileobj(image.file, buffer)
 
         # Generate the image URL, make sure it matches the static route
-        image_url = https://librarymanagementsystem.vercel.app/uploaded_books_images/{image.filename}"
+        image_url = image_url = f"{request.url.scheme}://{request.client.host}:{request.url.port}/uploaded_books_images/{image.filename}"
         book.image_url = image_url  # Assign image URL to the book
 
     # Insert the book into MongoDB
