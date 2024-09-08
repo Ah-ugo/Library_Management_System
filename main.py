@@ -346,3 +346,24 @@ async def Delete_Borrowing(id:str):
         allItems.append(Borrowing(**item))
 
     return allItems
+
+# Requests
+
+@app.get("/requests", tags=["Requests"])
+async def Get_All_Requests():
+    getRequests = request_collection.find({})
+    requests = []
+
+    async for request in getRequests:
+        requests.append(BorrowRequest(**request))
+
+    return requests
+
+@app.post("/requests", tags=["Requests"])
+async def Create_Request(body:BorrowRequest):
+    createRequest = await request_collection.insert_one(body.dict())
+    getAddedReq = await request_collection.find_one({"_id": ObjectId(createRequest.inserted_id)})
+
+    getAddedReq["_id"] = str(getAddedReq["_id"])
+
+    return getAddedReq
