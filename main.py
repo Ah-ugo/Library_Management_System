@@ -165,7 +165,7 @@ async def add_Book(
             shutil.copyfileobj(image.file, buffer)
 
         # Generate the image URL, make sure it matches the static route
-        image_url = f"http://localhost:8000/uploaded_books_images/{image.filename}"
+        image_url = f"https://library-management-system-ntef-g2qpm38xg.vercel.app/uploaded_books_images/{image.filename}"
         book.image_url = image_url  # Assign image URL to the book
 
     # Insert the book into MongoDB
