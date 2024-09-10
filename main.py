@@ -10,6 +10,16 @@ import shutil
 from typing_extensions import Annotated
 from fastapi.staticfiles import StaticFiles
 from pymongo import MongoClient
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+# Configure your Cloudinary credentials
+cloudinary.config(
+    cloud_name="dejeplzpv",
+    api_key="124721334338285",
+    api_secret="CTYwG9PTDXhWGS-1L2XWhzeqjNU"
+)
 
 
 client = MongoClient('mongodb+srv://parabellum:bluu12345@cluster0.5kumd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
@@ -57,6 +67,12 @@ class Student(BaseModel):
     email: str = Field(...)
     password: str = Field(...)
 
+class OptionalStudent(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+
 class Book(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     title: str = Field(...)
@@ -65,11 +81,25 @@ class Book(BaseModel):
     category: str = Field(...)
     image_url: Optional[str] = None
 
+class OptionalBook(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    title: Optional[str] = None
+    author: Optional[str] = None
+    isbn: Optional[str] = None
+    category: Optional[str] = None
+    image_url: Optional[str] = None
+
 class User(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     name: str = Field(...)
     email: str = Field(...)
     password: str = Field(...)
+
+class OptionalUser(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
 
 class Borrowing(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
@@ -79,10 +109,23 @@ class Borrowing(BaseModel):
     return_date: datetime = Field(...)
     returned: bool = Field(False)
 
+class OptionalBorrowing(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    book_id: Optional[str] = None
+    user_id: Optional[str] = None
+    borrow_date: Optional[datetime] = None
+    return_date: Optional[datetime] = None
+    returned: Optional[bool] = None
+
 class BorrowRequest(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     book_id: str = Field(...)
     user_id: str = Field(...)
+
+class OptionalBorrowRequest(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    book_id: Optional[str] = None
+    user_id: Optional[str] = None
 
 app = FastAPI()
 
@@ -126,6 +169,24 @@ def editStudent(id:str, student: Student):
 
     return student
 
+
+@app.patch("/students/{id}", tags=["Students"])
+def Update_Student(id: str, body: OptionalStudent):
+    update_data = {k: v for k, v in body.dict().items() if v is not None}
+
+    # Update the student record
+    student_update = student_collection.update_one({"_id": ObjectId(id)}, {"$set": update_data})
+
+    # Fetch the updated student document from the correct collection
+    updated_student = student_collection.find_one({"_id": ObjectId(id)})
+
+    if updated_student:
+        updated_student["_id"] = str(updated_student["_id"])  # Convert ObjectId to string
+        return updated_student
+    else:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+
 @app.delete("/students/{id}", tags=["Students"])
 def deleteStudent(id:str):
     student_collection.delete_one({"_id": ObjectId(id)})
@@ -161,14 +222,14 @@ request: Request,
     book = Book(title=title, author=author, isbn=isbn, category=category)
 
     if image:
-        # Save the uploaded image file
-        file_location = f"{UPLOAD_DIRECTORY}/{image.filename}"
-        with open(file_location, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
+        try:
+            # Upload the image to Cloudinary
+            upload_result = cloudinary.uploader.upload(image.file, folder="books")
 
-        # Generate the image URL, make sure it matches the static route
-        image_url = image_url = f"{request.url.scheme}://{request.client.host}:{request.url.port}/uploaded_books_images/{image.filename}"
-        book.image_url = image_url  # Assign image URL to the book
+            # Store the URL of the uploaded image
+            book.image_url = upload_result.get("url")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
 
     # Insert the book into MongoDB
     addBook = book_collection.insert_one(book.dict())
@@ -187,7 +248,7 @@ def getBookById(id:str):
     return book
 
 @app.put("/books/{id}", tags=["Books"])
-def editBook(id:str, book: Book):
+def editBook(id:str, book: OptionalBook):
     booky = book_collection.find_one_and_update({"_id": ObjectId(id)},
             {"$set": book.dict()},
             return_document=True)
@@ -256,7 +317,7 @@ def get_User_By_Id(id:str):
 
 
 @app.put("/users/{id}", tags=["Users"])
-def Edit_User_Data(id: str, user_update: User):
+def Edit_User_Data(id: str, user_update: OptionalUser):
     # Fetch the existing user data
     existing_user = user_collection.find_one({"_id": ObjectId(id)})
     if not existing_user:
@@ -325,7 +386,7 @@ def Get_Borrowing_By_Id(id:str):
     return getBorrowing
 
 @app.put("/borrowing/{id}", tags=["Borrowings"])
-def Update_Borrowing(id:str, body:Borrowing):
+def Update_Borrowing(id:str, body:OptionalBorrowing):
     updateItem = borrowing_collection.find_one_and_update(
             {"_id": ObjectId(id)},
             {"$set": body.dict()},
@@ -370,6 +431,58 @@ def Create_Request(body:BorrowRequest):
 
     return getAddedReq
 
+@app.get("/requests/{id}", tags=["Requests"])
+def Find_Request_By_Id (id:str):
+    req = request_collection.find_one({"_id": ObjectId(id)})
+
+    req["_id"] = str(req["_id"])
+    return req
+
+@app.put("/request/{id}", tags=["Requests"])
+def Edit_Request(id:str, body:OptionalBorrowRequest):
+    editQuery = request_collection.find_one_and_update(
+        {"_id": ObjectId(id)},
+        {"$set": body.dict()},
+        return_document= True
+    )
+
+    # getEditedItem = request_collection.find_one({"_id": ObjectId(editQuery.inserted_id)})
+
+    editQuery["_id"] = str(editQuery["_id"])
+
+    return editQuery
+
+
+@app.patch("/request/{id}", tags=["Requests"])
+def Patch_Request(id: str, body: OptionalBorrowRequest):
+    try:
+        # Check if the id is a valid ObjectId
+        oid = ObjectId(id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid ObjectId")
+
+    # Create a dictionary of only the fields that have been provided for update
+    update_data = {k: v for k, v in body.dict().items() if v is not None}
+
+    # If no data is provided to update
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields provided for update")
+
+    # Perform the update
+    result = request_collection.update_one({"_id": oid}, {"$set": update_data})
+
+    # If no documents were matched, return a 404 error
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # Fetch the updated document
+    updated_request = request_collection.find_one({"_id": oid})
+
+    if updated_request:
+        updated_request["_id"] = str(updated_request["_id"])  # Convert ObjectId to string
+        return updated_request
+    else:
+        raise HTTPException(status_code=500, detail="Failed to retrieve updated request")
 
 
 @app.get("/")
