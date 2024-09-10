@@ -238,7 +238,6 @@ request: Request,
 
     return result
 
-
 @app.get("/books/{id}" , tags=["Books"])
 def getBookById(id:str):
     book = book_collection.find_one({"_id": ObjectId(id)})
