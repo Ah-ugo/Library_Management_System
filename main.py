@@ -2,7 +2,7 @@ from _datetime import datetime
 import os
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from pydantic import BaseModel, Field
-import motor.motor_asyncio
+# import motor.motor_asyncio
 from bson import ObjectId
 from typing import Optional, List
 from pydantic.functional_validators import BeforeValidator
@@ -13,16 +13,19 @@ from pymongo import MongoClient
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configure your Cloudinary credentials
 cloudinary.config(
-    cloud_name="dejeplzpv",
-    api_key="124721334338285",
-    api_secret="CTYwG9PTDXhWGS-1L2XWhzeqjNU"
+    cloud_name=os.getenv("CLOUD_NAME"),
+    api_key=os.getenv("API_KEY"),
+    api_secret=os.getenv("API_SECRET")
 )
 
 
-client = MongoClient('mongodb+srv://parabellum:bluu12345@cluster0.5kumd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+client = MongoClient(os.getenv("MONGO_URL"))
 
 db = client.LMS
 
